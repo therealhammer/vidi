@@ -9,7 +9,7 @@ You have to install the following:
 
   - tkinter
 
-  - cv2
+  - Open cv2
 
   - numpy
 
@@ -17,4 +17,8 @@ You have to install the following:
 
 
 ## How to run
-Execute the run.sh 
+Execute the run.sh or vidi.py
+
+Add object as color and set it up. Bright colors work best. Start the Midi screen and enjoy!
+
+Sometimes opening Midiports doesnt work very well and played notes will stay on. In this case open "None" instead. It will open a virtual port you can connect to from your device or programm.

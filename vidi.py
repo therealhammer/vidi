@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
+
+# Important imports
 import numpy as np
 import cv2
 import rtmidi
 import tkinter as tk
+import time
 
+# Global Program State Variable
 ProgState = ""
 
+# Class for each Color/Note Object
 class note:
 	name = "Name"
 	midiout = 0
@@ -16,6 +21,7 @@ class note:
 	g_range = 0
 	b_range = 0
 	scalearray = []
+	possiblenotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"]
 	previousnote = [0,0,0]
 
 	def getMidiPorts(self):
@@ -31,14 +37,16 @@ class note:
 		return midiout.get_port_name()
 
 	def setMidi(self, portname):
+		if(self.midiout != 0):
+			self.midiout.close_port()
 		self.midiout = rtmidi.MidiOut()
 		available_ports = self.midiout.get_ports()
 		for i, item in enumerate(available_ports):
 			if(portname == item and not self.midiout.is_port_open()):
 				self.midiout.open_port(i, self.name)
 				print("Opened" + str(i) + item + portname)
-		else:
-			return "No Port available. Opened none"
+		if(self.midiout == 0):
+			self.midiout.open_virtual_port(self.name)
 		
 	def getColor(self):
 		return np.array([self.r, self.g, self.b])
@@ -61,9 +69,9 @@ class note:
 	def playNote(self, notenr, loudness):
 		notetoplay = [0x90, self.scalearray[notenr], loudness]
 		if(self.previousnote != notetoplay):
-			self.midiout.send_message([0x90, self.previousnote[1], 0])
+			self.midiout.send_message([0x80, self.previousnote[1], 0])
 			self.midiout.send_message(notetoplay) 
-			self.previousnote =notetoplay
+			self.previousnote = notetoplay
 
 	def getColorLow(self):
 		r = self.r - self.r_range
@@ -80,8 +88,7 @@ class note:
 	def setScale(self, scale, startnote):
 		self.scalearray = []
 		if(type(startnote) == type(str())):
-			basenote = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"]
-			startnote = basenote.index(startnote) + 36
+			startnote = self.possiblenotes.index(startnote) + 36
 		if (scale == "Chromatic"):
 			for i in range(40):
 				self.scalearray.append(startnote + i)
@@ -118,7 +125,7 @@ class note:
 				j = j +12
 		elif(scale == "Blues"):
 			j = 0
-			for i in range(0, 40, 5):
+			for i in range(0, 40, 6):
 				self.scalearray.append(startnote + 0 + j)
 				self.scalearray.append(startnote + 3 + j)
 				self.scalearray.append(startnote + 5 + j)
@@ -127,7 +134,7 @@ class note:
 				self.scalearray.append(startnote + 10 + j)
 				j = j +12
 
-
+# Main Class 
 class vidi:
 	tkwindow = tk.Tk()
 	settingsframe = tk.Frame(tkwindow)
@@ -137,6 +144,8 @@ class vidi:
 	width = int(cap.get(3))
 	height = int(cap.get(4))
 	notearray = []
+
+	# Main window 
 	def setup(self):
 		print("VIDI by Thierry und Fia. Press q to quit.")
 		print("Video is " + str(self.width) + "x" + str(self.height) + " big")
@@ -154,23 +163,28 @@ class vidi:
 		startButton.grid(row = 101, column = 10)
 		self.tkwindow.mainloop()
 
+	# Adding a new color
 	def newColor(self):
 		o = note()
 		self.notearray.append(o)
 		self.editColor(self, self.notearray[-1])
 
+	# Editing a color
 	def editColor(self, o):
 		self.getColorWindow(self, o)
 		self.noteSettings(self, o)
 		self.updateNotes(self)
 
+	# Updating notes in main window
 	def updateNotes(self):
 		i = 0
 		for o in self.notearray:
 			tk.Button(self.settingsframe, text="Edit" , command=lambda: self.editColor(self, o)).grid(row=i, column=3)
+			tk.Button(self.settingsframe, text="Delete" , command=lambda: self.editColor(self, o)).grid(row=i, column=4)
 			tk.Label(self.settingsframe, text=o.name, background=o.getColorHex()).grid(row=i, column=2)
 			i = i + 1
-	
+
+	# Extracting color from webcam image
 	def getColorWindow(self, o):
 		global ProgState
 		ProgState = "SELECTCOL"
@@ -211,6 +225,7 @@ class vidi:
 		ProgState = ""
 		cv2.destroyWindow("getColor")
 
+	# Settings Window for notes and colors
 	def noteSettings(self, o):
 		tknote = tk.Tk()
 		f = tk.IntVar(tknote)
@@ -246,7 +261,7 @@ class vidi:
 		RangeWdg.insert(tk.END, str(o.getRange()))
 		RangeWdg.config(state=tk.DISABLED)
 
-		noteArray = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"]
+		noteArray = o.possiblenotes
 		notetkvar = tk.StringVar(mainframe)
 		notetkvar.set("c")
 		StartNote = tk.OptionMenu(mainframe, notetkvar, *noteArray)
@@ -262,13 +277,13 @@ class vidi:
 		finishButton.grid(row = 6, column = 4)
 		tknote.protocol("WM_DELETE_WINDOW", self.checkBoxEvent)
 		tknote.wait_variable(f)
-		#TODO Saven der Einstellungen
 
 		o.name = name.get()
 		o.setMidi(miditkvar.get())
 		o.setScale(scaletkvar.get(), notetkvar.get())
 		tknote.destroy()
 
+	# Main loop for VIDI
 	def startLoop(self, rows, n_in_rows):
 		global ProgState
 		cv2.namedWindow('VIDI')
@@ -296,7 +311,7 @@ class vidi:
 
 		cv2.destroyWindow("VIDI")
 			
-
+	# Adding grid to frame
 	def addGrid(self, frame, rows, n_in_rows):
 		color = (255, 255, 255)
 		for i in range(rows+1):
@@ -305,6 +320,7 @@ class vidi:
 			cv2.line(frame, (int((self.width/n_in_rows)*(i)), 0), (int((self.width/n_in_rows)*(i)), self.height), color, 1, 1)
 		return frame
 
+	# Change program state
 	def mouseEvent(event, x, y, flags, param):
 		global ProgState
 		if(event == cv2.EVENT_LBUTTONDBLCLK):
@@ -315,17 +331,13 @@ class vidi:
 			elif(ProgState == "MAINLOOP"):
 				ProgState = "MAINLOOPEND"
 
-	def sliderEvent(x):
-		pass
-	
-	def checkBoxEvent(*x):
-		pass
-
+	# Get only relevant color out of Frame
 	def maskFrame(self, frame, colLow, colHigh):
 		mask = cv2.inRange(frame, colLow,  colHigh)
 		frame = cv2.bitwise_and(frame,frame, mask=mask)
 		return frame
 
+	# Get brightest spot by gaussian filter
 	def brightestGaussian(self, frame, radius):
 		x = 0
 		y = 0
@@ -334,6 +346,7 @@ class vidi:
 		(minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(gray)
 		return maxLoc
 	
+	# Get brightest spot by adding pixels in area together
 	def brightestOld(self, frame, rows, n_in_rows):
 		framearray = []
 		for i in range(rows):
@@ -352,5 +365,15 @@ class vidi:
 
 		return (brightest[0], brightest[1])
 
+	# Unused Events
+	def sliderEvent(x):
+		pass
+	
+	def checkBoxEvent(*x):
+		pass
+
+
+
+# Start Program
 vid = vidi
 vid.setup(vid)
