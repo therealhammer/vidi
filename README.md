@@ -4,11 +4,11 @@ Vidi is a program, that is able to convert color information of your Webcam to M
 
 ## How to install
 You have to install the following:
-  *  Python 3.x
-  *  tkinter
-  *  cv2
-  *  numpy
-  *  python rtmidi
+  - Python 3.x
+  - tkinter
+  - cv2
+  - numpy
+  - python rtmidi
 
 
 ## How to run
