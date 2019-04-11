@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-import time
 import rtmidi
 import tkinter as tk
 
@@ -116,7 +115,16 @@ class note:
 				self.scalearray.append(startnote + 7 + j)
 				self.scalearray.append(startnote + 9 + j)
 				j = j +12
-		return True #TODO
+		elif(scale == "Blues"):
+			j = 0
+			for i in range(0, 40, 5):
+				self.scalearray.append(startnote + 0 + j)
+				self.scalearray.append(startnote + 3 + j)
+				self.scalearray.append(startnote + 5 + j)
+				self.scalearray.append(startnote + 6 + j)
+				self.scalearray.append(startnote + 7 + j)
+				self.scalearray.append(startnote + 10 + j)
+				j = j +12
 
 
 class vidi:
@@ -243,7 +251,7 @@ class vidi:
 		StartNote = tk.OptionMenu(mainframe, notetkvar, *noteArray)
 		StartNote.grid(row=4, column=1, sticky=tk.W)
 
-		scaleArray = ["Chromatic", "Maj", "Min", "Pentatonic"]
+		scaleArray = ["Chromatic", "Maj", "Min", "Pentatonic", "Blues"]
 		scaletkvar = tk.StringVar(mainframe)
 		scaletkvar.set("Chromatic")
 		NoteScale = tk.OptionMenu(mainframe, scaletkvar, *scaleArray)
