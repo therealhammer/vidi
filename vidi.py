@@ -155,11 +155,17 @@ class vidi:
 		tk.Label(self.settingsframe, text="Height:").grid(row = 1, column = 0, sticky=(tk.E))
 		addButton = tk.Button(self.settingsframe, text='Add new color', command=lambda: self.newColor(self))
 		addButton.grid(row = 100, column = 10)
-		widthSlider = tk.Scale(self.settingsframe, from_=1, to=40, orient=tk.HORIZONTAL)
-		widthSlider.grid(row = 0, column = 1)
-		heightSlider = tk.Scale(self.settingsframe, from_=1, to=30, orient=tk.HORIZONTAL)
-		heightSlider.grid(row = 1, column = 1)
-		startButton = tk.Button(self.settingsframe, text='Start Midi', command=lambda: self.startLoop(self, heightSlider.get(), widthSlider.get()))
+		w = tk.IntVar()
+		h = tk.IntVar()
+		w.set(12)
+		h.set(8)
+		tk.Label(self.settingsframe, textvariable=w).grid(row=0, column=1)
+		tk.Label(self.settingsframe, textvariable=h).grid(row=1, column=1)
+		wSlider = tk.Scale(self.settingsframe, showvalue=False, from_=1, to=40, variable=w, orient=tk.HORIZONTAL)
+		wSlider.grid(row = 0, column = 2)
+		hSlider = tk.Scale(self.settingsframe, showvalue=False, from_=1, to=30, variable=h, orient=tk.HORIZONTAL)
+		hSlider.grid(row = 1, column = 2)
+		startButton = tk.Button(self.settingsframe, text='Start Midi', command=lambda: self.startLoop(self, h.get(), w.get()))
 		startButton.grid(row = 101, column = 10)
 		self.tkwindow.mainloop()
 
@@ -175,14 +181,25 @@ class vidi:
 		self.noteSettings(self, o)
 		self.updateNotes(self)
 
+	def deleteColor(self, o):
+		self.notearray.remove(o)
+		self.updateNotes(self)
+		#TODO
+
 	# Updating notes in main window
 	def updateNotes(self):
 		i = 0
+		for tkobject in self.settingsframe.grid_slaves():
+			col = int(tkobject.grid_info()["column"]) 
+			row = int(tkobject.grid_info()["row"]) 
+			if(3 <= col and col <= 5):
+				tkobject.grid_forget()
 		for o in self.notearray:
-			tk.Button(self.settingsframe, text="Edit" , command=lambda: self.editColor(self, o)).grid(row=i, column=3)
-			tk.Button(self.settingsframe, text="Delete" , command=lambda: self.editColor(self, o)).grid(row=i, column=4)
-			tk.Label(self.settingsframe, text=o.name, background=o.getColorHex()).grid(row=i, column=2)
-			i = i + 1
+			tk.Button(self.settingsframe, text="Edit" , command=lambda note=o: self.editColor(self, note)).grid(row=i, column=4)
+			tk.Button(self.settingsframe, text="Delete" , command=lambda note=o: self.deleteColor(self, note)).grid(row=i, column=5)
+			tk.Label(self.settingsframe, text=o.name, background=o.getColorHex()).grid(row=i, column=3)
+			i = i + 1#TODO alle objekte zeigen auf das letzte wtf
+		
 
 	# Extracting color from webcam image
 	def getColorWindow(self, o):
@@ -297,18 +314,18 @@ class vidi:
 			frames = []
 			for o in self.notearray:
 				mask = cv2.inRange(origframe, o.getColorLow(), o.getColorHigh())
-				frames.append(cv2.bitwise_and(origframe, origframe, mask=mask))#TODO
-				#spot = self.brightestGaussian(self, frames[-1], 21)
-				#rect = [int((spot[0]/self.height)*n_in_rows), int((spot[1]/self.width)*rows)]
-				rect = self.brightestOld(self, frames[-1], rows, n_in_rows)
-				frames[-1] = cv2.rectangle(frames[-1], (int((self.width/n_in_rows)*rect[1]), int((self.height/rows)*rect[0])), (int((self.width/n_in_rows)*(rect[1]+1)), int((self.height/rows)*(rect[0]+1))), o.getColorNoNP(),3)
+				frames.append(cv2.bitwise_and(origframe, origframe, mask=mask))
+				#rect = self.brightestGaussianRect(self, frames[-1], 21, rows, n_in_rows)
+				rect = self.brightestRect(self, frames[-1], rows, n_in_rows)
+				rectA = (int((self.width/n_in_rows)*rect[1]), int((self.height/rows)*rect[0]))
+				rectB = (int((self.width/n_in_rows)*(rect[1]+1)), int((self.height/rows)*(rect[0]+1)))
+				frames[-1] = cv2.rectangle(frames[-1], rectA, rectB, o.getColorNoNP(),3)
 				frame = cv2.add(frame, frames[-1])
 				o.playNote(rect[1], int((rect[0]/rows)*128))
 			frame = self.addGrid(self, frame, rows, n_in_rows)
 			cv2.imshow("VIDI", frame)
 			if cv2.waitKey(1) & 0xFF == ord('q'):
 				break
-
 		cv2.destroyWindow("VIDI")
 			
 	# Adding grid to frame
@@ -337,6 +354,13 @@ class vidi:
 		frame = cv2.bitwise_and(frame,frame, mask=mask)
 		return frame
 
+	# Get brightest rectangle by gaussian filter
+	def brightestGaussianRect(self, frame, radius, rows, n_in_rows):
+		spot = self.brightestGaussian(self, frame, radius)
+		x = int((self.width/spot[0])*n_in_rows)
+		y = int((self.height/spot[1])*rows)
+		return (x, y)
+		
 	# Get brightest spot by gaussian filter
 	def brightestGaussian(self, frame, radius):
 		x = 0
@@ -346,8 +370,8 @@ class vidi:
 		(minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(gray)
 		return maxLoc
 	
-	# Get brightest spot by adding pixels in area together
-	def brightestOld(self, frame, rows, n_in_rows):
+	# Get brightest rectangle by adding pixels in rectangle together
+	def brightestRect(self, frame, rows, n_in_rows):
 		framearray = []
 		for i in range(rows):
 			framerow = []
@@ -362,7 +386,6 @@ class vidi:
 				rectbrightness = np.sum(framearray[i][j])
 				if rectbrightness > brightest[2]:
 					brightest = [i, j, rectbrightness]
-
 		return (brightest[0], brightest[1])
 
 	# Unused Events
