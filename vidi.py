@@ -136,19 +136,24 @@ class note:
 
 # Main Class 
 class vidi:
+	# Tkinter Window
 	tkwindow = tk.Tk()
 	settingsframe = tk.Frame(tkwindow)
+
+	# Capturing the main Webcam and getting its size
 	cap = cv2.VideoCapture(0)
-	rows = 0
-	n_in_rows = 0
 	width = int(cap.get(3))
 	height = int(cap.get(4))
+
+	# Objects of playable Midi-Color connections
 	notearray = []
 
 	# Main window 
 	def setup(self):
 		print("VIDI by Thierry und Fia. Press q to quit.")
 		print("Video is " + str(self.width) + "x" + str(self.height) + " big")
+
+		#TKinter setting up main window
 		self.tkwindow.title("VIDI Main Menu")
 		self.settingsframe.grid(column=0,row=0, sticky=(tk.N,tk.W,tk.E,tk.S) )
 		tk.Label(self.settingsframe, text="Width:").grid(row = 0, column = 0, sticky=(tk.E))
@@ -157,6 +162,7 @@ class vidi:
 		addButton.grid(row = 100, column = 10)
 		w = tk.IntVar()
 		h = tk.IntVar()
+		gauss = tk.BooleanVar()
 		w.set(12)
 		h.set(8)
 		tk.Label(self.settingsframe, textvariable=w).grid(row=0, column=1)
@@ -165,26 +171,28 @@ class vidi:
 		wSlider.grid(row = 0, column = 2)
 		hSlider = tk.Scale(self.settingsframe, showvalue=False, from_=1, to=30, variable=h, orient=tk.HORIZONTAL)
 		hSlider.grid(row = 1, column = 2)
-		startButton = tk.Button(self.settingsframe, text='Start Midi', command=lambda: self.startLoop(self, h.get(), w.get()))
+		tk.Radiobutton(self.settingsframe, text="Gauss Filter", variable=gauss, value = True).grid(row=2, column = 1)
+		tk.Radiobutton(self.settingsframe, text="Threshhold Filter", variable=gauss, value = False).grid(row=3, column = 1)
+		startButton = tk.Button(self.settingsframe, text='Start Midi', command=lambda: self.startLoop(self, h.get(), w.get(), gauss.get()))
 		startButton.grid(row = 101, column = 10)
 		self.tkwindow.mainloop()
 
-	# Adding a new color
+	# Adding a new color object
 	def newColor(self):
 		o = note()
 		self.notearray.append(o)
 		self.editColor(self, self.notearray[-1])
 
-	# Editing a color
+	# Editing a color object
 	def editColor(self, o):
 		self.getColorWindow(self, o)
 		self.noteSettings(self, o)
 		self.updateNotes(self)
 
+	# Removing a color object
 	def deleteColor(self, o):
 		self.notearray.remove(o)
 		self.updateNotes(self)
-		#TODO
 
 	# Updating notes in main window
 	def updateNotes(self):
@@ -198,13 +206,15 @@ class vidi:
 			tk.Button(self.settingsframe, text="Edit" , command=lambda note=o: self.editColor(self, note)).grid(row=i, column=4)
 			tk.Button(self.settingsframe, text="Delete" , command=lambda note=o: self.deleteColor(self, note)).grid(row=i, column=5)
 			tk.Label(self.settingsframe, text=o.name, background=o.getColorHex()).grid(row=i, column=3)
-			i = i + 1#TODO alle objekte zeigen auf das letzte wtf
+			i = i + 1
 		
 
 	# Extracting color from webcam image
 	def getColorWindow(self, o):
 		global ProgState
 		ProgState = "SELECTCOL"
+
+		# Open CV Window setup
 		cv2.namedWindow('getColor')
 		cv2.setMouseCallback('getColor', self.mouseEvent)
 		cv2.createTrackbar('Range R','getColor',0,255,self.sliderEvent)
@@ -214,14 +224,19 @@ class vidi:
 		cv2.setTrackbarPos('Range G','getColor', 30)
 		cv2.setTrackbarPos('Range B','getColor', 30)
 		midpoint = (self.width//2, self.height//2)
+
+		# Loop processing the camera image
 		while(ProgState != "END"):
 			ret, frame = self.cap.read()
+			# Flip frame because mirror image is less confusing than the original
 			frame = cv2.flip(frame, 1)
 			newcol = frame[self.height//2, self.width//2]
 			text = ""
 			o.r_range = cv2.getTrackbarPos('Range R','getColor')
 			o.g_range = cv2.getTrackbarPos('Range G','getColor')
 			o.b_range = cv2.getTrackbarPos('Range B','getColor')
+
+			# Setting the color
 			if(ProgState == "SELECTCOL"):
 				cv2.circle(frame, midpoint, 15, [int(newcol[0]), int(newcol[1]), int(newcol[2])] , 4)
 				text = "Double Click to get color"
@@ -229,12 +244,16 @@ class vidi:
 				o.setColor(newcol)
 				ProgState = "SETRANGE"
 				text = "Color Set"
+
+			# Setting the range
 			elif(ProgState == "SETRANGE"):
 				frame = self.maskFrame(self, frame, o.getColorLow(), o.getColorHigh())
 				text = "Double Click to set range"
 				maxLoc = self.brightestGaussian(self, frame, 21)
 				cv2.circle(frame, maxLoc, 21, [255,255,255], 2)
 				cv2.circle(frame, midpoint, 15, o.getColorNoNP(), 4)
+
+			# Displaying image and text in CV window
 			cv2.putText(frame, text, (0, int(self.height//1.1)), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), lineType=cv2.LINE_AA)
 			cv2.imshow('getColor', frame)
 			if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -244,6 +263,7 @@ class vidi:
 
 	# Settings Window for notes and colors
 	def noteSettings(self, o):
+		# Tkinter main setup
 		tknote = tk.Tk()
 		f = tk.IntVar(tknote)
 		tknote.title("Edit new note")
@@ -256,11 +276,13 @@ class vidi:
 		tk.Label(mainframe, text="Start Note").grid(row = 4, column = 0)
 		tk.Label(mainframe, text="Note Scale").grid(row = 5, column = 0)
 
+		# Name of Connection
 		name = tk.StringVar(mainframe)
 		name.set(o.name)
 		NameWdg = tk.Entry(mainframe, textvariable=name)
 		NameWdg.grid(row=0, column=1, sticky=tk.W)
 
+		# Set Midi Port
 		ports = o.getMidiPorts()
 		ports.append("None")
 		miditkvar = tk.StringVar(mainframe)
@@ -268,6 +290,7 @@ class vidi:
 		midiDrop = tk.OptionMenu(mainframe, miditkvar, *ports)
 		midiDrop.grid(row=1, column=1, sticky=tk.W)
 
+		# Display color and range
 		ColorWdg = tk.Text(mainframe, height=1, width=10, background=o.getColorHex())
 		ColorWdg.grid(row=2, column=1, sticky=tk.W)
 		ColorWdg.insert(tk.END, str(o.getColor()))
@@ -278,18 +301,21 @@ class vidi:
 		RangeWdg.insert(tk.END, str(o.getRange()))
 		RangeWdg.config(state=tk.DISABLED)
 
+		# Set start note
 		noteArray = o.possiblenotes
 		notetkvar = tk.StringVar(mainframe)
 		notetkvar.set("c")
 		StartNote = tk.OptionMenu(mainframe, notetkvar, *noteArray)
 		StartNote.grid(row=4, column=1, sticky=tk.W)
 
+		# Set note scale
 		scaleArray = ["Chromatic", "Maj", "Min", "Pentatonic", "Blues"]
 		scaletkvar = tk.StringVar(mainframe)
 		scaletkvar.set("Chromatic")
 		NoteScale = tk.OptionMenu(mainframe, scaletkvar, *scaleArray)
 		NoteScale.grid(row=5, column=1, sticky=tk.W)
 
+		# Save button
 		finishButton = tk.Button(mainframe, text="Save", command=lambda: f.set(1))
 		finishButton.grid(row = 6, column = 4)
 		tknote.protocol("WM_DELETE_WINDOW", self.checkBoxEvent)
@@ -301,31 +327,51 @@ class vidi:
 		tknote.destroy()
 
 	# Main loop for VIDI
-	def startLoop(self, rows, n_in_rows):
+	def startLoop(self, rows, n_in_rows, gauss):
 		global ProgState
 		cv2.namedWindow('VIDI')
 		cv2.setMouseCallback('VIDI', self.mouseEvent)
 		ProgState = "MAINLOOP"
+
+		# Main loop displaying the midi grid and image
 		while(ProgState == "MAINLOOP"):
+			# Get frame and create a black backround frame to add stuff later
 			ret, origframe = self.cap.read()
 			origframe = cv2.flip(origframe, 1)
 			mask = cv2.inRange(origframe, np.array([0,0,0]), np.array([0,0,0]))
 			frame = cv2.bitwise_and(origframe, origframe, mask=mask)
+
+			# Process every color-note object in a for loop
 			frames = []
 			for o in self.notearray:
+				# Get mask 
 				mask = cv2.inRange(origframe, o.getColorLow(), o.getColorHigh())
 				frames.append(cv2.bitwise_and(origframe, origframe, mask=mask))
-				#rect = self.brightestGaussianRect(self, frames[-1], 21, rows, n_in_rows)
-				rect = self.brightestRect(self, frames[-1], rows, n_in_rows)
+
+				# Apply filter and get location of the colored object 
+				if (gauss == True):
+					rect = self.brightestGaussianRect(self, frames[-1], 21, rows, n_in_rows)
+				else:
+					rect = self.brightestRect(self, frames[-1], rows, n_in_rows)
+
+				# Surround rectangle with object in it with color
 				rectA = (int((self.width/n_in_rows)*rect[1]), int((self.height/rows)*rect[0]))
 				rectB = (int((self.width/n_in_rows)*(rect[1]+1)), int((self.height/rows)*(rect[0]+1)))
-				frames[-1] = cv2.rectangle(frames[-1], rectA, rectB, o.getColorNoNP(),3)
+				frames[-1] = cv2.rectangle(frames[-1], rectA, rectB, o.getColorNoNP(),5)
+
+				# Add masked frame and rectangle to displaying frame
 				frame = cv2.add(frame, frames[-1])
+
+				# Play the corresponding midi note
 				o.playNote(rect[1], int((rect[0]/rows)*128))
+
+			# Add grid to frame and show 
 			frame = self.addGrid(self, frame, rows, n_in_rows)
 			cv2.imshow("VIDI", frame)
 			if cv2.waitKey(1) & 0xFF == ord('q'):
 				break
+
+		# Quit Midi loop
 		cv2.destroyWindow("VIDI")
 			
 	# Adding grid to frame
@@ -357,8 +403,9 @@ class vidi:
 	# Get brightest rectangle by gaussian filter
 	def brightestGaussianRect(self, frame, radius, rows, n_in_rows):
 		spot = self.brightestGaussian(self, frame, radius)
-		x = int((self.width/spot[0])*n_in_rows)
-		y = int((self.height/spot[1])*rows)
+		y = int(n_in_rows*(spot[0]/self.width))
+		x = int(rows*(spot[1]/self.height))
+		print(str(x) + " " + str(y))
 		return (x, y)
 		
 	# Get brightest spot by gaussian filter
@@ -372,6 +419,7 @@ class vidi:
 	
 	# Get brightest rectangle by adding pixels in rectangle together
 	def brightestRect(self, frame, rows, n_in_rows):
+		# Slice the frame in little frames
 		framearray = []
 		for i in range(rows):
 			framerow = []
@@ -380,6 +428,7 @@ class vidi:
 				framerow.append(cv2.cvtColor(rect, cv2.COLOR_BGR2GRAY))
 			framearray.append(framerow)
 
+		# Get the brightest frame
 		brightest = [0,0,1000] #x, y, brightness
 		for i in range(rows):
 			for j in range(n_in_rows):
