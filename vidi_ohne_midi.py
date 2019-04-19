@@ -3,7 +3,7 @@
 # Important imports
 import numpy as np
 import cv2
-import rtmidi
+#import rtmidi
 import tkinter as tk
 import time
 
@@ -13,7 +13,6 @@ ProgState = ""
 # Class for each Color/Note Object
 class note:
 	name = "Name"
-	midiout = 0
 	r = 0
 	g = 0
 	b = 0
@@ -23,30 +22,6 @@ class note:
 	scalearray = []
 	possiblenotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"]
 	previousnote = [0,0,0]
-
-	def getMidiPorts(self):
-		return rtmidi.MidiOut().get_ports()
-
-	def closeMidi(self):
-		try:
-			self.midiout.close_port()
-		except:
-			del midiout
-
-	def getMidi(self):
-		return midiout.get_port_name()
-
-	def setMidi(self, portname):
-		if(self.midiout != 0):
-			self.midiout.close_port()
-		self.midiout = rtmidi.MidiOut()
-		available_ports = self.midiout.get_ports()
-		for i, item in enumerate(available_ports):
-			if(portname == item and not self.midiout.is_port_open()):
-				self.midiout.open_port(i, self.name)
-				print("Opened" + str(i) + item + portname)
-		if(portname == "None" or self.midiout == 0):
-			self.midiout.open_virtual_port(self.name)
 		
 	def getColor(self):
 		return np.array([self.r, self.g, self.b])
@@ -65,13 +40,6 @@ class note:
 		self.r = rgb[2]
 		self.g = rgb[1]
 		self.b = rgb[0]
-
-	def playNote(self, notenr, loudness):
-		notetoplay = [0x90, self.scalearray[notenr], loudness]
-		if(self.previousnote != notetoplay):
-			self.midiout.send_message([0x80, self.previousnote[1], 0])
-			self.midiout.send_message(notetoplay) 
-			self.previousnote = notetoplay
 
 	def getColorLow(self):
 		r = self.r - self.r_range
@@ -282,14 +250,6 @@ class vidi:
 		NameWdg = tk.Entry(mainframe, textvariable=name)
 		NameWdg.grid(row=0, column=1, sticky=tk.W)
 
-		# Set Midi Port
-		ports = o.getMidiPorts()
-		ports.append("None")
-		miditkvar = tk.StringVar(mainframe)
-		miditkvar.set("None")
-		midiDrop = tk.OptionMenu(mainframe, miditkvar, *ports)
-		midiDrop.grid(row=1, column=1, sticky=tk.W)
-
 		# Display color and range
 		ColorWdg = tk.Text(mainframe, height=1, width=10, background=o.getColorHex())
 		ColorWdg.grid(row=2, column=1, sticky=tk.W)
@@ -322,7 +282,6 @@ class vidi:
 		tknote.wait_variable(f)
 
 		o.name = name.get()
-		o.setMidi(miditkvar.get())
 		o.setScale(scaletkvar.get(), notetkvar.get())
 		tknote.destroy()
 
@@ -363,7 +322,6 @@ class vidi:
 				frame = cv2.add(frame, frames[-1])
 
 				# Play the corresponding midi note
-				o.playNote(rect[1], int((rect[0]/rows)*128))
 
 			# Add grid to frame and show 
 			frame = self.addGrid(self, frame, rows, n_in_rows)
