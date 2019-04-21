@@ -424,7 +424,7 @@ class vidi:
 		for i in range(rows):
 			framerow = []
 			for j in range(n_in_rows):
-				rect = frame[i*(self.height/rows):(i+1)*(self.height/rows), j*(self.width/n_in_rows):(j+1)*(self.width/n_in_rows)]
+				rect = frame[int(i*(self.height/rows)):int((i+1)*(self.height/rows)), int(j*(self.width/n_in_rows)):int((j+1)*(self.width/n_in_rows))]
 				framerow.append(cv2.cvtColor(rect, cv2.COLOR_BGR2GRAY))
 			framearray.append(framerow)
 
